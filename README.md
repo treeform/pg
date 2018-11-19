@@ -23,6 +23,8 @@ But you have to be carefull to not run more then one query at once on the connec
 If running in `{.async.}` funciton use `await`:
 ```nim
 let rows = await pg.rows(sql"SELECT 1")
+for row in rows:
+  echo row
 ```
 
 Otherwies you can use `waitFor`:
