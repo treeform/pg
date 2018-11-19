@@ -20,12 +20,12 @@ But you have to be carefull to not run more then one query at once on the connec
 
 ## Get rows
 
-If not running in `{.async.}` funciton use `await`:
+If running in `{.async.}` funciton use `await`:
 ```nim
 let rows = await pg.rows(sql"SELECT 1")
 ```
 
-Otherwies you can use `waitFor`
+Otherwies you can use `waitFor`:
 ```nim
 let rows = waitFor pg.rows(sql"SELECT 1")
 ```
