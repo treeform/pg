@@ -1,4 +1,4 @@
-import ../src/pg, asyncdispatch
+import pg, asyncdispatch
 
 proc main1() =
   # sync version
