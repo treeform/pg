@@ -2,12 +2,14 @@
 
 import asyncdispatch
 include db_postgres
+import print
 
+type
+  AsyncPool* = ref object
+    conns: seq[DbConn]
+    busy: seq[bool]
 
-type AsyncPool* = ref object
-  conns: seq[DbConn]
-  busy: seq[bool]
-
+  PGError* = object of Exception
 
 proc newAsyncPool*(
     connection,
@@ -23,6 +25,13 @@ proc newAsyncPool*(
     assert conn.status == CONNECTION_OK
     result.conns.add conn
     result.busy.add false
+
+
+proc checkError(db: DbConn) =
+  ## raises a DbError exception.
+  var message = pqErrorMessage(db)
+  if message.len > 0:
+    raise newException(PGError, $message)
 
 
 proc rows*(
@@ -41,13 +50,17 @@ proc rows*(
       continue
     var pqresutl = pqgetResult(db)
     if pqresutl == nil:
-      break
+      # some thin bad?
+      db.checkError()
+      return
+
     var cols = pqnfields(pqresutl)
     var row = newRow(cols)
     for i in 0'i32..pqNtuples(pqresutl)-1:
       setRow(pqresutl, row, i, cols)
       result.add row
     pqclear(pqresutl)
+
 
 
 proc getFreeConnIdx(pool: AsyncPool): Future[int] {.async.} =
