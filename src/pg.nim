@@ -4,12 +4,16 @@ import asyncdispatch
 include db_postgres
 import print
 
+
 type
+  ## db pool
   AsyncPool* = ref object
     conns: seq[DbConn]
     busy: seq[bool]
 
+  ## Excpetion to catch on errors
   PGError* = object of Exception
+
 
 proc newAsyncPool*(
     connection,
@@ -18,7 +22,7 @@ proc newAsyncPool*(
     database: string,
     num: int
   ): AsyncPool =
-  ## Create a new async pool
+  ## Create a new async pool of num connections.
   result = AsyncPool()
   for i in 0..<num:
     let conn = open(connection, user, password, database)
@@ -28,7 +32,7 @@ proc newAsyncPool*(
 
 
 proc checkError(db: DbConn) =
-  ## raises a DbError exception.
+  ## Raises a DbError exception.
   var message = pqErrorMessage(db)
   if message.len > 0:
     raise newException(PGError, $message)
@@ -38,22 +42,21 @@ proc rows*(
   db: DbConn,
   query: SqlQuery,
   args: seq[string]): Future[seq[Row]] {.async.} =
-  ## Runs the SQL getting results
+  ## Runs the SQL getting results.
   assert db.status == CONNECTION_OK
   let success = pqsendQuery(db, dbFormat(query, args))
-  if success != 1: dbError(db)
+  if success != 1: dbError(db) # never seen to fail when async
   while true:
     let success = pqconsumeInput(db)
-    if success != 1: dbError(db)
+    if success != 1: dbError(db) # never seen to fail when async
     if pqisBusy(db) == 1:
       await sleepAsync(1)
       continue
     var pqresutl = pqgetResult(db)
     if pqresutl == nil:
-      # some thin bad?
+      # Check if its a real error or just end of results
       db.checkError()
       return
-
     var cols = pqnfields(pqresutl)
     var row = newRow(cols)
     for i in 0'i32..pqNtuples(pqresutl)-1:
@@ -62,9 +65,8 @@ proc rows*(
     pqclear(pqresutl)
 
 
-
 proc getFreeConnIdx(pool: AsyncPool): Future[int] {.async.} =
-  ## Wait for a free connection and return it
+  ## Wait for a free connection and return it.
   while true:
     for conIdx in 0..<pool.conns.len:
       if not pool.busy[conIdx]:
@@ -74,7 +76,7 @@ proc getFreeConnIdx(pool: AsyncPool): Future[int] {.async.} =
 
 
 proc returnConn(pool: AsyncPool, conIdx: int) =
-  ## make the connection as free after using it and getting results
+  ## Make the connection as free after using it and getting results.
   pool.busy[conIdx] = false
 
 
@@ -83,7 +85,7 @@ proc rows*(
     query: SqlQuery,
     args: seq[string]
   ): Future[seq[Row]] {.async.} =
-  ## Runs the SQL getting results
+  ## Runs the SQL getting results.
   let conIdx = await pool.getFreeConnIdx()
   result = await rows(pool.conns[conIdx], query, args)
   pool.returnConn(conIdx)
@@ -94,7 +96,7 @@ proc exec*(
     query: SqlQuery,
     args: seq[string]
   ) {.async.} =
-  ## Runs the SQL without results
+  ## Runs the SQL without results.
   let conIdx = await pool.getFreeConnIdx()
   discard await rows(pool.conns[conIdx], query, args)
   pool.returnConn(conIdx)
