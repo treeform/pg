@@ -15,12 +15,12 @@ You can open a single connection with `db_postgres`'s api:
 ```nim
 let pg = open("localhost", "user", "password", "dbname")
 ```
-But you have to be carefull to not run more then one query at once on the connection.
+But you have to be careful to not run more then one query at once on the connection.
 
 
 ## Get rows
 
-If running in `{.async.}` funciton use `await`:
+If running in `{.async.}` function use `await`:
 ```nim
 let rows = await pg.rows(sql"SELECT 1")
 for row in rows:
@@ -39,12 +39,12 @@ let rows = await pg.rows(sql"SELECT ?, pg_sleep(1);", @["foo"])
 
 ## Run query without results
 
-You can also run query by ignoring results in `{.async.}` funciton use `await`:
+You can also run query by ignoring results in `{.async.}` function use `await`:
 ```nim
 await pg.exec(sql"UPDATE TABLE foo SET a=1")
 ```
 
-## Concurency:
+## Concurrency:
 
 Run 10 queries at once:
 
